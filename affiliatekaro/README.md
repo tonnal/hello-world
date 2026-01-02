@@ -10,6 +10,9 @@ Phase 2 implemented:
 - Ref codes per affiliate
 - Click tracking endpoint + public `tracker.js`
 
+Phase 3 implemented:
+- Razorpay webhook endpoint (signature-verified) to create conversions + commissions
+
 ## Local setup
 
 1) Install deps
@@ -57,3 +60,23 @@ Embed on the merchant website:
 
 It reads `?ref=CODE` or `?via=CODE`, logs a click, and writes a cookie:
 - `ak_attrib = affiliateId.programId.timestamp`
+
+## Razorpay webhook (MVP)
+
+Set your webhook URL in Razorpay Dashboard to:
+- `/api/webhooks/razorpay`
+
+Configure env:
+- `RAZORPAY_WEBHOOK_SECRET`
+
+### Required notes/metadata (for attribution)
+
+Because webhooks are server-to-server, Razorpay doesn’t know the browser cookie unless your checkout passes it.
+When you create a Razorpay **Order** / **Payment**, include **notes**:
+
+- `ak_org`: your AffiliateKaro `organizationId`
+- Either:
+  - `ak_attrib`: the cookie value `ak_attrib` (format: `affiliateId.programId.timestamp`) **preferred**
+  - or `ak_ref`: the affiliate `refCode` (fallback)
+
+Webhook currently listens to `payment.captured` and creates a `Conversion` with `status=PENDING`.
