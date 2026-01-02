@@ -211,14 +211,22 @@ export default function ProgramsClient({
                     <td className="py-2 pr-3">{p.cookieDays}d</td>
                     <td className="py-2 pr-3">{p.status}</td>
                     <td className="py-2 pr-0 text-right">
-                      <button
-                        disabled={loading}
-                        className="rounded-md border px-2 py-1 text-xs disabled:opacity-50"
-                        type="button"
-                        onClick={() => onDelete(p.id)}
-                      >
-                        Delete
-                      </button>
+                      <div className="flex justify-end gap-2">
+                        <a
+                          className="rounded-md border px-2 py-1 text-xs"
+                          href={`/dashboard/programs/${p.id}/affiliates`}
+                        >
+                          Affiliates
+                        </a>
+                        <button
+                          disabled={loading}
+                          className="rounded-md border px-2 py-1 text-xs disabled:opacity-50"
+                          type="button"
+                          onClick={() => onDelete(p.id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
