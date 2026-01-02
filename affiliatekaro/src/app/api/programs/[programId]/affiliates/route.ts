@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireApiSession } from "@/app/api/_utils";
 import { generateRefCode } from "@/lib/ref-code";
+import { PLAN_LIMITS } from "@/lib/plans";
 
 const CreateAffiliateSchema = z.object({
   email: z.string().email(),
@@ -47,6 +48,25 @@ export async function POST(
   const { programId } = await ctx.params;
   const program = await requireProgramForOrg(programId, auth.session.organizationId);
   if (!program) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const org = await prisma.organization.findUnique({
+    where: { id: auth.session.organizationId },
+    select: { plan: true },
+  });
+  if (!org) return NextResponse.json({ error: "Organization not found" }, { status: 404 });
+
+  const limits = PLAN_LIMITS[org.plan];
+  if (limits.maxAffiliates != null) {
+    const count = await prisma.affiliate.count({
+      where: { organizationId: auth.session.organizationId, status: { not: "REJECTED" } },
+    });
+    if (count >= limits.maxAffiliates) {
+      return NextResponse.json(
+        { error: "Affiliate limit reached for your plan" },
+        { status: 403 },
+      );
+    }
+  }
 
   const json = await req.json().catch(() => null);
   const parsed = CreateAffiliateSchema.safeParse(json);

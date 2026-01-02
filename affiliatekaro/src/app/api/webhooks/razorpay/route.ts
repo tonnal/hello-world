@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@/generated/prisma";
+import { Prisma } from "@prisma/client";
+import { PLAN_LIMITS, monthRange } from "@/lib/plans";
 
 export const runtime = "nodejs";
 
@@ -200,6 +201,35 @@ export async function POST(req: Request) {
   if (commissionAmount.lessThan(0)) commissionAmount = new Prisma.Decimal(0);
   if (commissionAmount.greaterThan(amount)) commissionAmount = amount;
 
+  // Plan enforcement: monthly GMV cap (INR only for MVP).
+  const org = await prisma.organization.findUnique({
+    where: { id: affiliate.organizationId },
+    select: { plan: true },
+  });
+  if (!org) return NextResponse.json({ error: "Organization not found" }, { status: 404 });
+
+  const limits = PLAN_LIMITS[org.plan];
+  if (limits.monthlyGmvCapInr != null) {
+    if (currency !== "INR") {
+      return NextResponse.json(
+        { error: "Non-INR currency not supported for MVP plan caps" },
+        { status: 400 },
+      );
+    }
+
+    const { start, end } = monthRange();
+    const agg = await prisma.conversion.aggregate({
+      where: { organizationId: affiliate.organizationId, createdAt: { gte: start, lt: end } },
+      _sum: { amount: true },
+    });
+    const current = agg._sum.amount ?? new Prisma.Decimal(0);
+    const next = current.add(amount);
+    if (next.greaterThan(new Prisma.Decimal(limits.monthlyGmvCapInr))) {
+      // Hard enforcement: still record the conversion, but reject commission.
+      commissionAmount = new Prisma.Decimal(0);
+    }
+  }
+
   try {
     const conversion = await prisma.conversion.create({
       data: {
@@ -214,7 +244,7 @@ export async function POST(req: Request) {
         commissionType,
         commissionValue,
         commissionAmount,
-        status: "PENDING",
+        status: commissionAmount.equals(0) ? "REJECTED" : "PENDING",
       },
     });
 

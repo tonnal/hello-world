@@ -5,8 +5,7 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -153,6 +152,7 @@ model Conversion {
   programId       String           @db.Uuid
   affiliateId     String           @db.Uuid
   referralId      String?          @db.Uuid
+  payoutId        String?          @db.Uuid
 
   source          String           // "razorpay" | "api"
   externalId      String           // order_id/payment_id/etc (idempotency key)
@@ -171,12 +171,14 @@ model Conversion {
   program         Program          @relation(fields: [programId], references: [id], onDelete: Cascade)
   affiliate       Affiliate        @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
   referral        Referral?        @relation(fields: [referralId], references: [id], onDelete: SetNull)
+  payout          Payout?          @relation(fields: [payoutId], references: [id], onDelete: SetNull)
 
   @@unique([source, externalId])
   @@index([organizationId, createdAt])
   @@index([affiliateId, createdAt])
   @@index([programId, createdAt])
   @@index([status, createdAt])
+  @@index([payoutId])
 }
 
 model Payout {
@@ -194,6 +196,7 @@ model Payout {
 
   organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   affiliate       Affiliate    @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  conversions     Conversion[]
 
   @@index([organizationId, createdAt])
   @@index([affiliateId, createdAt])

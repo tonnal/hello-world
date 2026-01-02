@@ -13,6 +13,11 @@ Phase 2 implemented:
 Phase 3 implemented:
 - Razorpay webhook endpoint (signature-verified) to create conversions + commissions
 
+Phase 4/5 implemented (MVP dashboards):
+- Merchant conversions dashboard (approve/reject)
+- Merchant payouts dashboard (mark paid + reference)
+- Public affiliate portal by `refCode`
+
 ## Local setup
 
 1) Install deps
@@ -49,6 +54,9 @@ Then visit:
 - `/signup`
 - `/login`
 - `/dashboard/programs`
+- `/dashboard/conversions`
+- `/dashboard/payouts`
+- `/portal/{REFCODE}`
 
 ## Tracking script (MVP)
 

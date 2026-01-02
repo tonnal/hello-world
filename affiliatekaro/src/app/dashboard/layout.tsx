@@ -19,6 +19,17 @@ export default async function DashboardLayout({
           </Link>
 
           <div className="flex items-center gap-4">
+            <nav className="hidden items-center gap-3 text-sm text-neutral-700 md:flex">
+              <Link className="underline-offset-4 hover:underline" href="/dashboard/programs">
+                Programs
+              </Link>
+              <Link className="underline-offset-4 hover:underline" href="/dashboard/conversions">
+                Conversions
+              </Link>
+              <Link className="underline-offset-4 hover:underline" href="/dashboard/payouts">
+                Payouts
+              </Link>
+            </nav>
             <span className="text-sm text-neutral-600">
               {session?.user?.email}
             </span>

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireApiSession } from "@/app/api/_utils";
-import { Prisma } from "@/generated/prisma";
+import { Prisma } from "@prisma/client";
 
 const UpdateProgramSchema = z.object({
   name: z.string().min(2).max(100).optional(),
