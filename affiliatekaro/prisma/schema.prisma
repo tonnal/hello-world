@@ -1,0 +1,201 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Plan {
+  FREE
+  STARTER
+  GROWTH
+}
+
+enum ProgramStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum CommissionType {
+  PERCENTAGE
+  FIXED
+}
+
+enum AffiliateStatus {
+  INVITED
+  APPROVED
+  SUSPENDED
+  REJECTED
+}
+
+enum CommissionStatus {
+  PENDING
+  APPROVED
+  PAID
+  REJECTED
+}
+
+enum PayoutStatus {
+  PENDING
+  PAID
+  REJECTED
+}
+
+model Organization {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  plan      Plan     @default(FREE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users      User[]
+  programs   Program[]
+  affiliates Affiliate[]
+  referrals  Referral[]
+  conversions Conversion[]
+  payouts    Payout[]
+
+  @@index([plan])
+}
+
+model User {
+  id           String        @id @default(uuid()) @db.Uuid
+  organizationId String      @db.Uuid
+  email        String        @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model Program {
+  id              String        @id @default(uuid()) @db.Uuid
+  organizationId  String        @db.Uuid
+  name            String
+  commissionType  CommissionType
+  commissionValue Decimal       @db.Decimal(18, 2)
+  cookieDays      Int
+  status          ProgramStatus @default(ACTIVE)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  affiliates      Affiliate[]
+  referrals       Referral[]
+  conversions     Conversion[]
+
+  @@index([organizationId, status])
+}
+
+model Affiliate {
+  id              String          @id @default(uuid()) @db.Uuid
+  organizationId  String          @db.Uuid
+  programId       String          @db.Uuid
+  email           String
+  name            String?
+  status          AffiliateStatus @default(INVITED)
+  refCode         String
+  couponCode      String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  program         Program         @relation(fields: [programId], references: [id], onDelete: Cascade)
+  referrals       Referral[]
+  conversions     Conversion[]
+  payouts         Payout[]
+
+  @@unique([programId, refCode])
+  @@index([organizationId, status])
+  @@index([programId, status])
+}
+
+model Referral {
+  id              String       @id @default(uuid()) @db.Uuid
+  organizationId  String       @db.Uuid
+  programId       String       @db.Uuid
+  affiliateId     String       @db.Uuid
+
+  visitorId       String?      // set by tracker.js (uuid), optional
+  ip              String?      // store raw or hashed (implementation choice)
+  userAgent       String?
+  landingUrl      String
+  refCode         String
+
+  createdAt       DateTime     @default(now())
+
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  program         Program      @relation(fields: [programId], references: [id], onDelete: Cascade)
+  affiliate       Affiliate    @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  conversions     Conversion[]
+
+  @@index([organizationId, createdAt])
+  @@index([programId, createdAt])
+  @@index([affiliateId, createdAt])
+  @@index([refCode, createdAt])
+}
+
+model Conversion {
+  id              String           @id @default(uuid()) @db.Uuid
+  organizationId  String           @db.Uuid
+  programId       String           @db.Uuid
+  affiliateId     String           @db.Uuid
+  referralId      String?          @db.Uuid
+
+  source          String           // "razorpay" | "api"
+  externalId      String           // order_id/payment_id/etc (idempotency key)
+  amount          Decimal          @db.Decimal(18, 2)
+  currency        String
+
+  commissionType  CommissionType
+  commissionValue Decimal          @db.Decimal(18, 2) // immutable snapshot
+  commissionAmount Decimal         @db.Decimal(18, 2) // immutable computed
+  status          CommissionStatus @default(PENDING)
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  program         Program          @relation(fields: [programId], references: [id], onDelete: Cascade)
+  affiliate       Affiliate        @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  referral        Referral?        @relation(fields: [referralId], references: [id], onDelete: SetNull)
+
+  @@unique([source, externalId])
+  @@index([organizationId, createdAt])
+  @@index([affiliateId, createdAt])
+  @@index([programId, createdAt])
+  @@index([status, createdAt])
+}
+
+model Payout {
+  id              String       @id @default(uuid()) @db.Uuid
+  organizationId  String       @db.Uuid
+  affiliateId     String       @db.Uuid
+
+  amount          Decimal      @db.Decimal(18, 2)
+  status          PayoutStatus @default(PENDING)
+  reference       String?      // manual txn reference
+  paidAt          DateTime?
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  affiliate       Affiliate    @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([affiliateId, createdAt])
+  @@index([status, createdAt])
+}
