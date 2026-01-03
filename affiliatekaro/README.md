@@ -88,7 +88,9 @@ When you create a Razorpay **Order** / **Payment**, include **notes**:
   - or `ak_ref`: the affiliate `refCode` (fallback)
   - or `ak_vid`: the visitor id used by `tracker.js` (attributes to the most recent tracked click)
 
-Webhook currently listens to `payment.captured` and creates a `Conversion` with `status=PENDING`.
+Webhook listens to:
+- `payment.captured` → creates a `Conversion` with `status=PENDING`
+- `refund.created` / `refund.processed` → marks the conversion as refunded
 
 ## Refund handling (MVP)
 

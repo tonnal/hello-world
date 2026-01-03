@@ -28,6 +28,15 @@ type RazorpayEvent = {
         notes?: Record<string, string>;
       };
     };
+    refund?: {
+      entity?: {
+        id: string;
+        payment_id: string;
+        amount: number; // in paise (may be partial)
+        currency: string;
+        notes?: Record<string, string>;
+      };
+    };
   };
 };
 
@@ -58,10 +67,72 @@ export async function POST(req: Request) {
 
   const evt = JSON.parse(raw) as RazorpayEvent;
 
-  // MVP: treat payment.captured as the conversion source of truth.
-  if (evt.event !== "payment.captured") {
-    return NextResponse.json({ ok: true });
+  // Refund events (MVP: treat any refund as commission reversal unless already paid out).
+  if (evt.event === "refund.created" || evt.event === "refund.processed") {
+    const refund = evt.payload?.refund?.entity;
+    if (!refund?.id || !refund.payment_id) {
+      return NextResponse.json({ error: "Bad refund payload" }, { status: 400 });
+    }
+
+    const notes = refund.notes ?? {};
+    const organizationId =
+      notes.ak_org || notes.organization_id || notes.org_id || notes.orgId;
+    if (!organizationId) {
+      return NextResponse.json(
+        { error: "Missing organization id in refund notes (ak_org)" },
+        { status: 400 },
+      );
+    }
+
+    const conversion = await prisma.conversion.findFirst({
+      where: {
+        organizationId,
+        source: "razorpay",
+        externalId: refund.payment_id,
+      },
+      select: { id: true, payoutId: true, refundedAt: true },
+    });
+
+    if (!conversion) {
+      // Refund came before we ever recorded the conversion (or wrong orgId).
+      return NextResponse.json({ ok: true, unknownConversion: true });
+    }
+
+    if (conversion.refundedAt) {
+      return NextResponse.json({ ok: true, alreadyRefunded: true });
+    }
+
+    const refundAmount = new Prisma.Decimal(refund.amount).div(100).toString();
+    const reason =
+      (notes.ak_refund_reason || notes.refund_reason || "").trim() ||
+      `Razorpay refund ${refund.id} (${refund.currency} ${refundAmount})`;
+
+    // If already paid out, we only flag it; merchant must handle clawback manually.
+    if (conversion.payoutId) {
+      await prisma.conversion.update({
+        where: { id: conversion.id },
+        data: {
+          refundedAt: new Date(),
+          refundReason: reason,
+        },
+      });
+      return NextResponse.json({ ok: true, flagged: "paid_out_refund" });
+    }
+
+    await prisma.conversion.update({
+      where: { id: conversion.id },
+      data: {
+        status: "REJECTED",
+        refundedAt: new Date(),
+        refundReason: reason,
+      },
+    });
+
+    return NextResponse.json({ ok: true, refunded: true });
   }
+
+  // MVP: treat payment.captured as the conversion source of truth.
+  if (evt.event !== "payment.captured") return NextResponse.json({ ok: true });
 
   const payment = evt.payload?.payment?.entity;
   if (!payment?.id) return NextResponse.json({ error: "Bad payload" }, { status: 400 });
