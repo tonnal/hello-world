@@ -89,3 +89,10 @@ When you create a Razorpay **Order** / **Payment**, include **notes**:
   - or `ak_vid`: the visitor id used by `tracker.js` (attributes to the most recent tracked click)
 
 Webhook currently listens to `payment.captured` and creates a `Conversion` with `status=PENDING`.
+
+## Refund handling (MVP)
+
+Refunds are handled manually:
+- In `/dashboard/conversions`, you can mark an **APPROVED** conversion as **Refunded**.
+- Refund sets `status=REJECTED` and stores `refundedAt` + `refundReason`.
+- If a conversion is already paid out, the UI blocks refund (handle outside the system).

@@ -164,6 +164,9 @@ model Conversion {
   commissionAmount Decimal         @db.Decimal(18, 2) // immutable computed
   status          CommissionStatus @default(PENDING)
 
+  refundedAt      DateTime?
+  refundReason    String?
+
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 

@@ -25,6 +25,7 @@ export default async function ConversionsPage() {
     currency: c.currency,
     commissionAmount: c.commissionAmount.toString(),
     status: c.status,
+    refundedAt: c.refundedAt?.toISOString() ?? null,
     affiliateEmail: c.affiliate.email,
     programName: c.program.name,
     payoutId: c.payout?.id ?? null,

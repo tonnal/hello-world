@@ -11,6 +11,7 @@ type Row = {
   currency: string;
   commissionAmount: string;
   status: "PENDING" | "APPROVED" | "PAID" | "REJECTED";
+  refundedAt?: string | null;
   affiliateEmail: string;
   programName: string;
   payoutId: string | null;
@@ -56,6 +57,29 @@ export default function ConversionsClient({ initial }: { initial: Row[] }) {
       }
       setItems((prev) =>
         prev.map((x) => (x.id === id ? { ...x, status: body.conversion.status } : x)),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function refund(id: string) {
+    const reason = prompt("Refund reason (optional):") || "";
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/conversions/${id}/refund`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(body?.error || "Failed to mark refunded");
+        return;
+      }
+      setItems((prev) =>
+        prev.map((x) => (x.id === id ? { ...x, status: "REJECTED" } : x)),
       );
     } finally {
       setLoading(false);
@@ -120,6 +144,11 @@ export default function ConversionsClient({ initial }: { initial: Row[] }) {
                   </td>
                   <td className="py-2 pr-3">
                     {r.payoutId ? `PAID (${r.payoutStatus})` : r.status}
+                    {r.refundedAt ? (
+                      <div className="text-xs text-neutral-600">
+                        refunded {new Date(r.refundedAt).toLocaleString()}
+                      </div>
+                    ) : null}
                   </td>
                   <td className="py-2 pr-0 text-right">
                     <div className="flex justify-end gap-2">
@@ -142,6 +171,15 @@ export default function ConversionsClient({ initial }: { initial: Row[] }) {
                             Reject
                           </button>
                         </>
+                      ) : r.status === "APPROVED" && !r.payoutId ? (
+                        <button
+                          disabled={loading}
+                          className="rounded-md border px-2 py-1 text-xs disabled:opacity-50"
+                          type="button"
+                          onClick={() => refund(r.id)}
+                        >
+                          Refund
+                        </button>
                       ) : (
                         <span className="text-xs text-neutral-500">—</span>
                       )}
