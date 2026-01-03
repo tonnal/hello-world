@@ -32,6 +32,9 @@ export default async function DashboardLayout({
               <Link className="underline-offset-4 hover:underline" href="/dashboard/payouts">
                 Payouts
               </Link>
+              <Link className="underline-offset-4 hover:underline" href="/dashboard/settings">
+                Settings
+              </Link>
             </nav>
             <span className="text-sm text-neutral-600">
               {session?.user?.email}

@@ -57,6 +57,7 @@ Then visit:
 - `/dashboard/conversions`
 - `/dashboard/payouts`
 - `/portal/{REFCODE}`
+- `/dashboard/settings`
 
 ## Tracking script (MVP)
 
@@ -98,3 +99,27 @@ Refunds are handled manually:
 - In `/dashboard/conversions`, you can mark an **APPROVED** conversion as **Refunded**.
 - Refund sets `status=REJECTED` and stores `refundedAt` + `refundReason`.
 - If a conversion is already paid out, the UI blocks refund (handle outside the system).
+
+## Custom Conversion API (MVP fallback)
+
+Endpoint:
+- `POST /api/track/conversion`
+
+Auth:
+- `Authorization: Bearer <API_KEY>` (generate in `/dashboard/settings`)
+
+Body:
+
+```json
+{
+  "externalId": "order_12345",
+  "amount": 999,
+  "currency": "INR",
+  "customerEmail": "buyer@example.com",
+  "ak_attrib": "affiliateId.programId.timestamp",
+  "refCode": "ABCD1234",
+  "visitorId": "ak_vid_value"
+}
+```
+
+Attribution: send **one of** `ak_attrib` (preferred), `refCode`, or `visitorId`.
