@@ -14,12 +14,15 @@ export default async function DashboardLayout({
     <div className="min-h-screen">
       <header className="border-b">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <Link href="/dashboard/programs" className="font-semibold">
+          <Link href="/dashboard" className="font-semibold">
             AffiliateKaro
           </Link>
 
           <div className="flex items-center gap-4">
             <nav className="hidden items-center gap-3 text-sm text-neutral-700 md:flex">
+              <Link className="underline-offset-4 hover:underline" href="/dashboard">
+                Overview
+              </Link>
               <Link className="underline-offset-4 hover:underline" href="/dashboard/programs">
                 Programs
               </Link>

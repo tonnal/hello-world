@@ -86,5 +86,6 @@ When you create a Razorpay **Order** / **Payment**, include **notes**:
 - Either:
   - `ak_attrib`: the cookie value `ak_attrib` (format: `affiliateId.programId.timestamp`) **preferred**
   - or `ak_ref`: the affiliate `refCode` (fallback)
+  - or `ak_vid`: the visitor id used by `tracker.js` (attributes to the most recent tracked click)
 
 Webhook currently listens to `payment.captured` and creates a `Conversion` with `status=PENDING`.

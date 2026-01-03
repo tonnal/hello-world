@@ -79,12 +79,15 @@ export async function POST(req: Request) {
   // Attribution options:
   // - notes.ak_attrib = "affiliateId.programId.timestamp" (preferred)
   // - notes.ak_ref / notes.ref = refCode (fallback)
+  // - notes.ak_vid = visitorId (fallback; attributes to latest recorded click)
   const attribRaw = notes.ak_attrib || notes.akAttrib || "";
   const refRaw = notes.ak_ref || notes.ref || notes.via || "";
+  const visitorIdRaw = notes.ak_vid || notes.ak_visitor || notes.visitor_id || "";
 
   let affiliateId: string | null = null;
   let programId: string | null = null;
   let attributionTs: number | null = null;
+  let referralId: string | null = null;
 
   const parsedAttrib = attribRaw ? parseAttributionCookie(attribRaw) : null;
   if (parsedAttrib) {
@@ -172,9 +175,54 @@ export async function POST(req: Request) {
     });
   }
 
+  if (!affiliate && visitorIdRaw) {
+    const visitorId = visitorIdRaw.trim();
+    const latestReferral = await prisma.referral.findFirst({
+      where: { organizationId, visitorId },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        createdAt: true,
+        affiliate: {
+          select: {
+            id: true,
+            email: true,
+            organizationId: true,
+            programId: true,
+            status: true,
+            program: {
+              select: {
+                id: true,
+                cookieDays: true,
+                commissionType: true,
+                commissionValue: true,
+                status: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (latestReferral?.affiliate?.status === "APPROVED" && latestReferral.affiliate.program.status === "ACTIVE") {
+      const ageMs = Date.now() - latestReferral.createdAt.getTime();
+      const maxMs = latestReferral.affiliate.program.cookieDays * 864e5;
+      if (ageMs >= 0 && ageMs <= maxMs) {
+        referralId = latestReferral.id;
+        affiliate = {
+          id: latestReferral.affiliate.id,
+          email: latestReferral.affiliate.email,
+          organizationId: latestReferral.affiliate.organizationId,
+          programId: latestReferral.affiliate.programId,
+          program: latestReferral.affiliate.program,
+        };
+      }
+    }
+  }
+
   if (!affiliate) {
     return NextResponse.json(
-      { error: "Unable to attribute conversion (missing/invalid ak_attrib or ref)" },
+      { error: "Unable to attribute conversion (missing/invalid ak_attrib, ak_ref, or ak_vid)" },
       { status: 400 },
     );
   }
@@ -236,7 +284,7 @@ export async function POST(req: Request) {
         organizationId: affiliate.organizationId,
         programId: affiliate.programId,
         affiliateId: affiliate.id,
-        referralId: null,
+        referralId,
         source: "razorpay",
         externalId: payment.id, // idempotency key
         amount,
